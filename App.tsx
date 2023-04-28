@@ -10,19 +10,69 @@ import {
   Modal,
   FlatList,
   TextInput,
-  Platform,
 } from 'react-native';
 import {InstalledApps} from 'react-native-launcher-kit';
-import DateTimePicker, {Event} from '@react-native-community/datetimepicker';
 import {AppDetail} from 'react-native-launcher-kit/typescript/Interfaces/InstalledApps';
+
+interface ListsProps {
+  app: AppDetail;
+  time: string;
+  token: string;
+}
 
 function App(): ReactNode {
   const [modalVisible, setModalVisible] = useState(false);
   const [installedApps, setInstalledApps] = useState<AppDetail[]>([]);
   const [selectedApp, setSelectedApp] = useState<AppDetail>();
-  const [timing, setTiming] = useState('');
-  const [time, setTime] = useState<Date>(new Date());
-  const [show, setShow] = useState<boolean>(false);
+  const [timing, setTiming] = useState<string>('');
+  const [spandToken, setSpandToken] = useState<string>('');
+
+  const handleTiming = (text: string) => {
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setTiming(numericValue);
+  };
+  const handleSpandToken = (text: string) => {
+    const numericValue = text.replace(/[^0-9]/g, '');
+    setSpandToken(numericValue);
+  };
+
+  const [controlledLists, setControlledLists] = useState<ListsProps[]>([]);
+
+  const handleControlledLists = (
+    app: AppDetail,
+    time: string,
+    token: string,
+  ) => {
+    setControlledLists(prevControlledLists => {
+      // Find the index of the existing app in the list
+      const existingAppIndex = prevControlledLists.findIndex(
+        listItem => listItem.app.packageName === app.packageName,
+      );
+
+      // If the app exists, replace it with the new item
+      if (existingAppIndex !== -1) {
+        return prevControlledLists.map((listItem, index) =>
+          index === existingAppIndex
+            ? {
+                app: app,
+                time: time,
+                token: token,
+              }
+            : listItem,
+        );
+      }
+
+      // If the app does not exist, add it to the list
+      return [
+        ...prevControlledLists,
+        {
+          app: app,
+          time: time,
+          token: token,
+        },
+      ];
+    });
+  };
 
   const showInstalledApps = async () => {
     try {
@@ -40,18 +90,12 @@ function App(): ReactNode {
   };
 
   const handleSubmit = () => {
-    // Your button press logic goes here
-    console.log('Button pressed');
-  };
-
-  const onChange = (event: any, selectedTime?: Date) => {
-    const currentTime = selectedTime || time;
-    setShow(Platform.OS === 'ios');
-    setTime(currentTime);
-  };
-
-  const showTimePicker = () => {
-    setShow(true);
+    if (selectedApp) {
+      handleControlledLists(selectedApp, timing, spandToken);
+      setSelectedApp(undefined);
+      setTiming('');
+      setSpandToken('');
+    }
   };
 
   return (
@@ -64,12 +108,27 @@ function App(): ReactNode {
           <View style={styles.navbar}>
             <Text style={styles.bigTitle}>usage control</Text>
           </View>
+          <View>
+            <Text
+              style={{
+                textAlign: 'center',
+                color: 'black',
+                fontSize: 24,
+                fontWeight: '600',
+                borderBottomColor: '#ddd',
+                borderBottomWidth: 1,
+                paddingVertical: 12,
+                marginBottom: 10,
+              }}>
+              Available Token: 500
+            </Text>
+          </View>
           <View style={styles.main}>
             <View style={styles.appContainer}>
-              {[...Array(4)].map((_, index) => (
+              {controlledLists.map(({app, time, token}, index) => (
                 <View key={index} style={styles.controlledApp}>
-                  <Text style={styles.appName}>Free Fire</Text>
-                  <Text style={styles.timeCount}>03 | 48 | 16</Text>
+                  <Text style={styles.appName}>{app.label}</Text>
+                  <Text style={styles.timeCount}>{time}</Text>
                 </View>
               ))}
             </View>
@@ -120,40 +179,25 @@ function App(): ReactNode {
                   </View>
                 </Modal>
               </View>
-              <View style={{marginBottom: 12}}>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: colors.primary.main,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 4,
-                  }}
-                  onPress={showTimePicker}>
-                  <Text
-                    style={{color: 'white', textAlign: 'center', fontSize: 16}}>
-                    Show Date Picker
-                  </Text>
-                </TouchableOpacity>
-                {show && (
-                  <DateTimePicker
-                    value={time}
-                    mode="date"
-                    display="default"
-                    onChange={onChange}
-                  />
-                )}
+              <View
+                style={{
+                  marginBottom: 12,
+                  display: 'flex',
+                  flexDirection: 'row',
+                }}>
                 <TextInput
-                  style={{
-                    borderWidth: 1,
-                    borderColor: '#aaa',
-                    paddingVertical: 2,
-                    paddingHorizontal: 12,
-                    fontSize: 16,
-                    borderRadius: 4,
-                  }}
+                  style={{...sx.formControl, width: '48%', marginRight: '2%'}}
                   value={timing}
-                  onChangeText={setTiming}
-                  placeholder="Type here..."
+                  keyboardType="numeric"
+                  onChangeText={handleTiming}
+                  placeholder="Time in minute"
+                />
+                <TextInput
+                  style={{...sx.formControl, width: '48%', marginLeft: '2%'}}
+                  value={spandToken}
+                  keyboardType="numeric"
+                  onChangeText={handleSpandToken}
+                  placeholder="Toekn will spend"
                 />
               </View>
               <View>
@@ -166,7 +210,11 @@ function App(): ReactNode {
                   }}
                   onPress={handleSubmit}>
                   <Text
-                    style={{color: 'white', textAlign: 'center', fontSize: 16}}>
+                    style={{
+                      color: 'white',
+                      textAlign: 'center',
+                      fontSize: 16,
+                    }}>
                     Submit now
                   </Text>
                 </TouchableOpacity>
@@ -184,6 +232,17 @@ const colors = {
     main: '#9B51E0',
   },
 };
+
+const sx = StyleSheet.create({
+  formControl: {
+    borderWidth: 1,
+    borderColor: '#aaa',
+    paddingVertical: 2,
+    paddingHorizontal: 12,
+    fontSize: 16,
+    borderRadius: 4,
+  },
+});
 
 const styles = StyleSheet.create({
   navbar: {
